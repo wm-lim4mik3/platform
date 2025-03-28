@@ -1,3 +1,3 @@
 export function Exit() {
-  return <div>SAINDO</div>;
+  return <div>GET BY ROLE</div>;
 }
