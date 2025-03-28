@@ -2,7 +2,7 @@
   "release-type": "node",
   "packages": {
     ".": {
-      "component": "financing-platform",
+      "package-name": "financing-platform",
       "version-file": "package.json",
       "changelog-path": "CHANGELOG.md"
     }
