@@ -1,0 +1,35 @@
+{
+  "release-type": "node",
+  "packages": {
+    ".": {
+      "component": "financing-platform",
+      "version-file": "package.json",
+      "changelog-path": "CHANGELOG.md"
+    }
+  },
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
+  "prerelease": true,
+  "tag-separator": "-rc",
+  "pull-request-title-pattern": "chore: releasing a new version: ${version}",
+  "versioning": "default",
+  "include-v-in-tag": true,
+  "changelog-types": [
+    {
+      "type": "feat",
+      "section": "Features",
+      "hidden": false
+    },
+    {
+      "type": "fix",
+      "section": "Bug Fixes",
+      "hidden": false
+    },
+    {
+      "type": "chore",
+      "section": "Miscellaneous",
+      "hidden": true
+    }
+  ],
+  "github-release": true
+}
