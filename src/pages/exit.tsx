@@ -1,3 +1,3 @@
 export function Exit() {
-  return <div>Buildando</div>;
+  return <div>LOGIN</div>;
 }
