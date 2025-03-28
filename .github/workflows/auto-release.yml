@@ -14,10 +14,11 @@ jobs:
         id: release
         with:
           token: ${{ secrets.PAT }}
-          config-file: .github/release-please-config.json
+          config-file: .github/.release-please-config.json
           release-type: node
           target-branch: master
-
+          prerelease: true
+          
       # - name: Add reviewers and labels to PR
       #   if: ${{ steps.release.outputs.pr }}
       #   run: |

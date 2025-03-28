@@ -1,14 +1,18 @@
 {
-  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/refs/heads/main/schemas/config.json",
   "release-type": "node",
-  "initial-version": "0.0.0",
-  "version-file": "package.json",
-  "changelog-path": "CHANGELOG.md",
+  "packages": {
+    ".": {
+      "package-name": "financing-platform",
+      "version-file": "package.json",
+      "changelog-path": "CHANGELOG.md"
+    }
+  },
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": true,
   "prerelease": true,
   "tag-separator": "-rc",
   "pull-request-title-pattern": "chore: releasing a new version: ${version}",
   "versioning": "default",
-  "include-v-in-tag": true
+  "include-v-in-tag": true,
+  "github-release": true
 }
