@@ -1,0 +1,29 @@
+name: auto-release
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  auto-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.PAT }}
+          config-file: .github/.release-please-config.json
+          release-type: node
+          target-branch: master
+          prerelease: true
+          
+      # - name: Add reviewers and labels to PR
+      #   if: ${{ steps.release.outputs.pr }}
+      #   run: |
+      #     PR_NUMBER=$(echo '${{ steps.release.outputs.pr }}' | grep -o '"number":[0-9]*' | grep -o '[0-9]*')
+      #     gh pr edit "$PR_NUMBER" \
+      #       --add-label "release-candidate"
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.PAT }}
