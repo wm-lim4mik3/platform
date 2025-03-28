@@ -17,7 +17,8 @@ jobs:
           config-file: .github/.release-please-config.json
           release-type: node
           target-branch: master
-
+          prerelease: true
+          
       # - name: Add reviewers and labels to PR
       #   if: ${{ steps.release.outputs.pr }}
       #   run: |
