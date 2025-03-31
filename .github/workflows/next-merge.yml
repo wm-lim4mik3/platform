@@ -29,9 +29,8 @@ jobs:
         uses: actions/cache@v3
         with:
           path: node_modules
-          key: ${{ runner.os }}-node_modules-${{a: |
-            ${{ runner.os }}-node_modules-
-
+          key: ${{ runner.os }}-node_modules-${{ hashFiles('package-lock.json') }}
+          
       - name: Run typecheck
         run: npx tsc --noEmit
 
