@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=23.0.0",
-    "npm": ">=11.2.0"
+    "node": ">=22.9.0",
+    "npm": ">=10.8.3"
   },
   "scripts": {
     "dev": "PORT=4000 next dev --turbopack",
@@ -16,6 +16,7 @@
     "test:unit": "echo 'hi'"
   },
   "dependencies": {
+    "@semantic-release/npm": "^12.0.1",
     "next": "15.2.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
