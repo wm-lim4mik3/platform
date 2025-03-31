@@ -51,6 +51,10 @@ jobs:
 
   release:
     needs: [typecheck, unit-test]
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
     name: Release
     runs-on: ubuntu-latest
     steps:
@@ -72,6 +76,5 @@ jobs:
           
       - name: Release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT }}
         run: npx semantic-release
