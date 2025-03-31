@@ -64,7 +64,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22.9.0" # LTS, ou 23.10 se preferir
+          node-version: "22.9.0"
       - name: Restore cached dependencies
         uses: actions/cache@v3
         with:
@@ -74,23 +74,26 @@ jobs:
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "<>"
+          
       - name: Release and Capture Notes
         id: release
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
         run: |
-          # Executa o semantic-release e salva as notas em um arquivo temporário
-          npx semantic-release --debug > release-output.txt 2>&1
+          # Executa o semantic-release
+          npx semantic-release --debug
           # Extrai a versão do package.json
           VERSION=$(node -p "require('./package.json').version")
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          # Extrai as notas de release do output
-          NOTES=$(grep -A 1000 "Publishing release notes" release-output.txt | tail -n +2 || echo "No release notes generated")
-          # Escapa as notas para o GitHub Actions
-          NOTES="${NOTES//'%'/'%25'}"
-          NOTES="${NOTES//$'\n'/'%0A'}"
-          NOTES="${NOTES//$'\r'/'%0D'}"
+          # Lê as notas de release diretamente do changelog.md
+          NOTES=$(cat changelog.md | sed 's/%/%25/g' | sed 's/\n/%0A/g' | sed 's/\r/%0D/g')
           echo "NOTES=$NOTES" >> $GITHUB_OUTPUT
+          
+      - name: Commit changelog.md (se necessário)
+        run: |
+          git add changelog.md
+          git commit -m "chore: update changelog for version ${{ steps.release.outputs.VERSION }}"
+          git push origin next
           
       - name: Update or Create PR to master
         env:
