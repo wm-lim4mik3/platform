@@ -1,3 +1,10 @@
+## 1.0.0-rc.2 (2025-03-31)
+
+* chore: fixing ([63b68d1](https://github.com/wm-lim4mik3/platform/commit/63b68d1))
+* chore: updating the chore ([21f5520](https://github.com/wm-lim4mik3/platform/commit/21f5520))
+* feat: funcionalidade nova ([c352225](https://github.com/wm-lim4mik3/platform/commit/c352225))
+* feat: leo ([0a070c3](https://github.com/wm-lim4mik3/platform/commit/0a070c3))
+
 # 1.0.0-rc.1 (2025-03-31)
 
 
