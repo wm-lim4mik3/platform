@@ -5,7 +5,8 @@
       "prerelease": "rc"
     },
     {
-      "name": "master"
+      "name": "master",
+      "prerelease": "staging"
     }
   ],
   "tagFormat": "v${version}",
