@@ -1,0 +1,12 @@
+# 1.0.0-rc.1 (2025-03-31)
+
+
+### Bug Fixes
+
+* asdasdasdasd ([f311e42](https://github.com/wm-lim4mik3/platform/commit/f311e42d4a842bef2899ccdda0c2e89ba3b34400))
+
+
+### Features
+
+* add ([2838f1e](https://github.com/wm-lim4mik3/platform/commit/2838f1eeb17d48631ab5956ef53675c1dd5fe8b0))
+* eai ([3ba375d](https://github.com/wm-lim4mik3/platform/commit/3ba375d5c59f32fd7e9ad6bad320c5e3e0451310))
