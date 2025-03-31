@@ -63,23 +63,36 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "23.10"
+          node-version: "22.9.0"
 
       - name: Restore cached dependencies
         uses: actions/cache@v3
         with:
           path: node_modules
           key: ${{ runner.os }}-node_modules-${{ hashFiles('package-lock.json') }}
-
+          
       - name: Configure Git
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "<>"
 
-      - name: Release
+      - name: Release and Capture Notes
+        id: release
         env:
           GITHUB_TOKEN: ${{ secrets.PAT }}
-        run: npx semantic-release
+        run: |
+          # Executa o semantic-release e salva as notas em um arquivo temporário
+          npx semantic-release --debug > release-output.txt 2>&1
+          # Extrai a versão do package.json
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          # Extrai as notas de release do output (busca por "Release notes" ou similar)
+          NOTES=$(grep -A 1000 "Publishing release notes" release-output.txt | tail -n +2 || echo "No release notes generated")
+          # Escapa as notas para evitar quebras no GitHub Actions
+          NOTES="${NOTES//'%'/'%25'}"
+          NOTES="${NOTES//$'\n'/'%0A'}"
+          NOTES="${NOTES//$'\r'/'%0D'}"
+          echo "NOTES=$NOTES" >> $GITHUB_OUTPUT
 
       - name: Create PR to master
         env:
@@ -88,4 +101,7 @@ jobs:
           git checkout next
           git pull origin next
           git push origin next
-          gh pr create --base master --head next --title "Release ${npm_package_version}" --body "Automated release PR for version ${npm_package_version}." --draft
+          gh pr create --base master --head next \
+            --title "Release ${{ steps.release.outputs.VERSION }}" \
+            --body "Automated release PR for version ${{ steps.release.outputs.VERSION }}.%0A%0A### Release Notes%0A${{ steps.release.outputs.NOTES }}" \
+            --draft
