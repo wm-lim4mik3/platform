@@ -1,0 +1,101 @@
+name: Staging Merge
+
+on:
+  push:
+    branches:
+      - staging
+
+jobs:
+  install-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: npm clean-install
+      - name: Cache node_modules
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node_modules-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node_modules-
+
+  typecheck:
+    needs: install-dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore cached dependencies
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node_modules-${{ hashFiles('package-lock.json') }}
+      - name: Run typecheck
+        run: npx tsc --noEmit
+
+  unit-test:
+    needs: install-dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore cached dependencies
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node_modules-${{ hashFiles('package-lock.json') }}
+      - name: Run unit tests
+        run: npm run test:unit
+
+  release-and-pr:
+    needs: [typecheck, unit-test]
+    permissions:
+      contents: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.9.0"
+      - name: Restore cached dependencies
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node_modules-${{ hashFiles('package-lock.json') }}
+      - name: Configure Git
+        run: |
+          git config user.name "GitHub Actions Bot"
+          git config user.email "<>"
+      - name: Release and Capture Notes
+        id: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+        run: |
+          npx semantic-release --debug
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          NOTES=$(cat CHANGELOG.md | sed 's/%/%25/g' | sed 's/\n/%0A/g' | sed 's/\r/%0D/g')
+          echo "NOTES=$NOTES" >> $GITHUB_OUTPUT
+      - name: Update or Create PR to master
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT }}
+        run: |
+          git checkout staging
+          git pull origin staging
+          git push origin staging
+          PR_NUMBER=$(gh pr list --base master --head staging --state open --json number -q '.[0].number' || echo "")
+          if [ -n "$PR_NUMBER" ]; then
+            gh pr edit "$PR_NUMBER" \
+              --title "Release v${{ steps.release.outputs.VERSION }}-staging" \
+              --body "Automated release PR for version ${{ steps.release.outputs.VERSION }}-staging.%0A%0A### Release Notes%0A${{ steps.release.outputs.NOTES }}"
+            echo "Updated existing PR #$PR_NUMBER"
+          else
+            gh pr create --base master --head staging \
+              --title "Release v${{ steps.release.outputs.VERSION }}-staging" \
+              --body "Automated release PR for version ${{ steps.release.outputs.VERSION }}-staging.%0A%0A### Release Notes%0A${{ steps.release.outputs.NOTES }}" \
+              --draft
+            echo "Created new PR"
+          fi
