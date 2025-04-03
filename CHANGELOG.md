@@ -1,3 +1,7 @@
+## 1.1.0-rc.1 (2025-04-03)
+
+* feat: nova feature saindo do forno ([1813f94](https://github.com/wm-lim4mik3/platform/commit/1813f94))
+
 ## 1.0.0-rc.1 (2025-04-03)
 
 * fix: ajuste ([e66c056](https://github.com/wm-lim4mik3/platform/commit/e66c056))
