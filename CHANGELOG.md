@@ -1,3 +1,8 @@
+## 1.1.0-rc.2 (2025-04-03)
+
+* fix: change text to portuguese ([9c32346](https://github.com/wm-lim4mik3/platform/commit/9c32346))
+* feat: alter a new feature ([83902f3](https://github.com/wm-lim4mik3/platform/commit/83902f3))
+
 ## 1.1.0-rc.1 (2025-04-03)
 
 * feat: nova feature saindo do forno ([1813f94](https://github.com/wm-lim4mik3/platform/commit/1813f94))
