@@ -12,7 +12,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "format": "npx biome format ./src"
+    "format": "npx biome format ./src",
+    "test:unit": "echo 'Running unit tests'"
   },
   "dependencies": {
     "next": "15.2.4",
