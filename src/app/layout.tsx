@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
 	title: "Webmotors",
-	description: "Plataforma de financiamento",
+	description: "Plataforma de contratos",
 };
 
 export default function RootLayout({
