@@ -1,3 +1,3 @@
-export function Exit() {
-  return <div>SAINDO</div>;
+export function Page() {
+  return <div>Nova Feature</div>;
 }
