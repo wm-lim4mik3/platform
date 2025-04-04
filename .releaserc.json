@@ -19,6 +19,10 @@
       "@semantic-release/commit-analyzer",
       {
         "preset": "conventionalcommits",
+        "parserOpts": {
+          "mergePattern": "^Merge pull request #\\d+ from .+$",
+          "mergeCorrespondence": []
+        },
         "releaseRules": [
           {
             "type": "fix",
@@ -42,7 +46,23 @@
     [
       "@semantic-release/release-notes-generator",
       {
-        "preset": "conventionalcommits"
+        "preset": "conventionalcommits",
+        "parserOpts": {
+          "mergePattern": "^Merge pull request #\\d+ from .+$",
+          "mergeCorrespondence": []
+        },
+        "writerOpts": {
+          "commitsSort": [
+            "subject",
+            "scope"
+          ],
+          "commitGroupsSort": "title",
+          "ignoreCommits": [
+            {
+              "subject": "/^Merge pull request #\\d+ from .+$/"
+            }
+          ]
+        }
       }
     ],
     [
