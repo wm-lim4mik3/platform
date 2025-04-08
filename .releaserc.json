@@ -33,6 +33,10 @@
             "release": "minor"
           },
           {
+            "type": "ci",
+            "release": "patch"
+          },
+          {
             "type": "chore",
             "release": false
           },
