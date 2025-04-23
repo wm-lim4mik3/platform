@@ -22,7 +22,7 @@ export const Page: React.FC = () => {
 			<section className="storybook-page">
 				<h2>Pages in Storybook</h2>
 				<p>
-					We recommend building UIs with a{" "}
+					We recommend mudar alguma coisa UIs with a{" "}
 					<a
 						href="https://componentdriven.org"
 						target="_blank"
@@ -66,7 +66,7 @@ export const Page: React.FC = () => {
 					</a>
 					.
 				</p>
-				<div className="tip-wrapper">
+				<div className="tip-wrapper bg-red-500">
 					<span className="tip">Tip</span> Adjust the width of the canvas with
 					the{" "}
 					<svg
