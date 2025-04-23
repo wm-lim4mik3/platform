@@ -4,6 +4,8 @@ export function NewPage() {
       Booyaaa, i'm the new page!!asdasd
 
       BRNZAN
+
+      MIBR E FURIA
     </div>
   )
 }
