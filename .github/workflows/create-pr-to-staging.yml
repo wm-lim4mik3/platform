@@ -1,0 +1,139 @@
+name: Create automatic PR to Staging
+
+on:
+  push:
+    branches:
+      - 'feat/PF-*'
+      - 'fix/PF-*'
+
+jobs:
+  create_automatic_pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch Staging and Generate Changelog
+        id: changelog
+        run: |
+          echo "🔄 Iniciando processo de geração de changelog..."
+
+          git fetch origin staging
+
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          CURRENT_HEAD=$(git rev-parse HEAD)
+          STAGING_COMMIT=$(git rev-parse origin/staging)
+          COMMITS_AHEAD=$(git rev-list --count origin/staging..HEAD)
+          AUTHORS=$(git log origin/staging..HEAD --pretty=format:'%an' | sort | uniq | paste -sd, -)
+
+          commits=$(git log origin/staging..HEAD --pretty=format:"%h|%s|%an|%ad" --date=short)
+
+          # Check for [skip pr] in commit messages
+          SKIP_PR=$(git log origin/staging..HEAD --pretty=format:"%s" | grep -qi "\[skip pr\]" && echo "true" || echo "false")
+          if [ "$SKIP_PR" = "true" ]; then
+            echo "🚫 Encontrado '[skip pr]' na mensagem de commit. Pulando criação de changelog e PR."
+            echo "skip_pr=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          if [ -z "$commits" ]; then
+            echo "✅ Nenhum commit novo encontrado em relação à Staging. PR não será criado."
+            echo "skip_pr=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          TICKET_ID=$(echo "$CURRENT_BRANCH" | grep -o 'PF-[0-9]\+')
+
+          {
+            echo "## 📦 Atualizações desta entrega automática"
+            echo ""
+            echo "Este PR foi gerado automaticamente após o push da branch \`$CURRENT_BRANCH\`. Por favor, revise com atenção. 🧐"
+            echo ""
+
+            if [ -n "$TICKET_ID" ]; then
+              echo "Detectado pelo nome da branch que pode ter um ticket aberto para essa demanda, acesse em: [$TICKET_ID](https://webmotors.atlassian.net/browse/$TICKET_ID)"
+              echo ""
+            fi
+
+            echo "### 📌 Informações do PR"
+            echo "- 👤 **Autores:** $AUTHORS"
+            echo "- 🌿 **Branch source:** \`$CURRENT_BRANCH\`"
+            echo "- 🎯 **Branch target:** \`Staging\`"
+            echo "- 📦 **Commits à frente de 'staging':** $COMMITS_AHEAD commits"
+            echo "- 🧠 **HEAD atual:** \`$CURRENT_HEAD\`"
+            echo "- 🧱 **Último commit em 'staging':** \`$STAGING_COMMIT\`"
+            echo ""
+            echo "### 🆕 Histórico de atualizações"
+            echo ""
+
+            declare -A commit_types
+            commit_types=(["feat"]="Feats" ["fix"]="Fixes" ["breaking"]="Breaking Changes" ["docs"]="Docs" ["chore"]="Chores" ["test"]="Tests" ["refactor"]="Refactors" ["style"]="Styles" ["ci"]="CI")
+
+            for type in "${!commit_types[@]}"; do
+              eval "${type}_commits=''"
+            done
+
+            while IFS= read -r line; do
+              IFS='|' read -r hash subject author date <<< "$line"
+              if [ -n "$hash" ] && [ -n "$subject" ] && [ -n "$author" ] && [ -n "$date" ]; then
+                commit_type=$(echo "$subject" | grep -oE '^(feat|fix|breaking|docs|chore|test|refactor|style|ci)(\([^)]+\))?:' | sed 's/(\([^)]*\))//g' | sed 's/:$//')
+                if [ -z "$commit_type" ]; then
+                  commit_type="chore"
+                fi
+
+                # Remove the commit type prefix from the subject
+                clean_subject=$(echo "$subject" | sed -E 's/^(feat|fix|breaking|docs|chore|test|refactor|style|ci)(\([^)]+\))?:[[:space:]]*//')
+                escaped_subject=$(echo "$clean_subject" | sed 's/[#`*]/\\&/g' | sed 's/"/\\"/g')
+                commit_message="$escaped_subject (\`$hash\`) - $author"
+                if [ -n "${commit_types[$commit_type]}" ]; then
+                  eval "${commit_type}_commits+='\n- ${commit_message}'"
+                fi
+              fi
+            done <<< "$commits"
+
+            for type in "${!commit_types[@]}"; do
+              eval "section_commits=\$${type}_commits"
+              if [ -n "$section_commits" ]; then
+                echo "#### ${commit_types[$type]}"
+                echo -e "$section_commits"
+                echo ""
+              fi
+            done
+          } > changelog_body.md
+
+          echo "skip_pr=false" >> $GITHUB_OUTPUT
+
+      - name: Installing GitHub CLI
+        if: steps.changelog.outputs.skip_pr == 'false'
+        run: |
+          sudo apt update
+          sudo apt install -y gh
+
+      - name: Create or Update PR
+        if: steps.changelog.outputs.skip_pr == 'false'
+        run: |
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          PR_TITLE="[$(echo "$CURRENT_BRANCH" | grep -o 'PF-[0-9]\+')] - 🤖 PR Automático"
+
+          EXISTING_PR_URL=$(gh pr list --base staging --head "$CURRENT_BRANCH" --json url --jq '.[0].url')
+
+          if [ -n "$EXISTING_PR_URL" ]; then
+            echo "✏️ Atualizando PR existente..."
+            gh pr edit "$EXISTING_PR_URL" --body-file changelog_body.md
+            echo "pr_url=$EXISTING_PR_URL" >> $GITHUB_OUTPUT
+          else
+            echo "🚀 Criando novo PR..."
+            PR_URL=$(gh pr create \
+              --title "$PR_TITLE" \
+              --body-file changelog_body.md \
+              --head "$CURRENT_BRANCH" \
+              --base staging \
+              --label "auto-pr,needs-review"
+              )
+            echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}

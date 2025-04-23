@@ -2,6 +2,16 @@ commit-msg:
   jobs:
     - run: npx --no -- commitlint --edit $1
       description: "Checking commit message"
-      tags:
-        - frontend
-        - tooling
+
+pre-push:
+  jobs:
+    - run: npx vitest --run --changed HEAD~1
+      description: "Running test in changed files"
+
+pre-commit:
+  jobs:
+    - run: npx biome check --write --no-errors-on-unmatched {staged_files}
+      with:
+        stage_fixed: true
+      description: "Formatting and fixing lint issues with Biome"
+      
