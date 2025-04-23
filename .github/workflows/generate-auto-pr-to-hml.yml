@@ -29,10 +29,6 @@ jobs:
           COMMITS_AHEAD=$(git rev-list --count origin/hml..HEAD)
           AUTHORS=$(git log origin/hml..HEAD --pretty=format:'%an' | sort | uniq | paste -sd, -)
 
-          printf "📍 Branch atual: %s\n" "$CURRENT_BRANCH"
-          printf "🔨 HEAD (%s): %s\n" "$CURRENT_BRANCH" "$CURRENT_HEAD"
-          printf "🎯 Target (origin/hml): %s\n" "$HML_COMMIT"
-
           commits=$(git log origin/hml..HEAD --pretty=format:"%h|%s|%an|%ad" --date=short)
 
           if [ -z "$commits" ]; then
@@ -43,66 +39,64 @@ jobs:
 
           TICKET_ID=$(echo "$CURRENT_BRANCH" | grep -o 'PF-[0-9]\+')
 
-          changelog_body=$(
-            cat <<EOF
-            ## 📦 Atualizações desta entrega automática
+          # Start building the changelog body with proper newline preservation
+          {
+            echo "## 📦 Atualizações desta entrega automática"
+            echo ""
+            echo "Este PR foi gerado automaticamente após o push da branch \`$CURRENT_BRANCH\`. Por favor, revise com atenção. 🧐"
+            echo ""
 
-            Este PR foi gerado automaticamente após o push da branch \`$CURRENT_BRANCH\`. Por favor, revise com atenção. 🧐
-
-            $( [ -n "$TICKET_ID" ] && echo "Detectado pelo nome da branch que pode haver um ticket aberto para essa demanda, acesse em: [$TICKET_ID](https://webmotors.atlassian.net/browse/$TICKET_ID)\n" )
-
-            ### 📌 Informações do PR
-
-            - 👤 **Autores do push:** $AUTHORS  
-            - 🌿 **Branch source:** \`$CURRENT_BRANCH\`  
-            - 🎯 **Branch target:** \`hml\`  
-            - 📦 **Commits à frente de 'hml':** $COMMITS_AHEAD  
-            - 🧠 **HEAD atual:** \`$CURRENT_HEAD\`  
-            - 🧱 **Último commit em 'hml':** \`$HML_COMMIT\`
-
-            ### 🆕 Histórico de atualizações
-            EOF
-          )
-
-          declare -A commit_types=(
-            ["feat"]="Feats"
-            ["fix"]="Fixes"
-            ["breaking"]="Breaking Changes"
-            ["docs"]="Docs"
-            ["chore"]="Chores"
-            ["test"]="Tests"
-            ["refactor"]="Refactors"
-            ["style"]="Styles"
-            ["ci"]="CI"
-          )
-
-          for type in "${!commit_types[@]}"; do
-            eval "${type}_commits=''"
-          done
-
-          while IFS= read -r line; do
-            IFS='|' read -r hash subject author date <<< "$line"
-            if [ -n "$hash" ] && [ -n "$subject" ] && [ -n "$author" ] && [ -n "$date" ]; then
-              commit_type=$(echo "$subject" | grep -oE '^(feat|fix|breaking|docs|chore|test|refactor|style|ci)(\([^)]+\))?:' | sed 's/(\([^)]*\))//g' | sed 's/:$//')
-              [ -z "$commit_type" ] && commit_type="chore"
-              short_hash=$(echo "$hash" | cut -c 1-6)
-              escaped_subject=$(echo "$subject" | sed 's/#/\\#/g')
-              commit_message="$escaped_subject (\`$short_hash\`) - $author"
-              eval "${commit_type}_commits+=\"- $commit_message\n\""
+            if [ -n "$TICKET_ID" ]; then
+              echo "Detectado pelo nome da branch que pode ter um ticket aberto para essa demanda, acesse em: [$TICKET_ID](https://webmotors.atlassian.net/browse/$TICKET_ID)"
+              echo ""
             fi
-          done <<< "$commits"
 
-          for type in "${!commit_types[@]}"; do
-            eval "section_commits=\$${type}_commits"
-            if [ -n "$section_commits" ]; then
-              changelog_body+="\n#### ${commit_types[$type]}\n$section_commits"
-            fi
-          done
+            echo "### 📌 Informações do PR"
+            echo "- 👤 **Autores do push:** $AUTHORS"
+            echo "- 🌿 **Branch source:** \`$CURRENT_BRANCH\`"
+            echo "- 🎯 **Branch target:** \`hml\`"
+            echo "- 📦 **Commits à frente de 'hml':** $COMMITS_AHEAD"
+            echo "- 🧠 **HEAD atual:** \`$CURRENT_HEAD\`"
+            echo "- 🧱 **Último commit em 'hml':** \`$HML_COMMIT\`"
+            echo ""
+            echo "### 🆕 Histórico de atualizações"
+            echo ""
+
+            declare -A commit_types
+            commit_types=(["feat"]="Feats" ["fix"]="Fixes" ["breaking"]="Breaking Changes" ["docs"]="Docs" ["chore"]="Chores" ["test"]="Tests" ["refactor"]="Refactors" ["style"]="Styles" ["ci"]="CI")
+
+            for type in "${!commit_types[@]}"; do
+              eval "${type}_commits=''"
+            done
+
+            while IFS= read -r line; do
+              IFS='|' read -r hash subject author date <<< "$line"
+              if [ -n "$hash" ] && [ -n "$subject" ] && [ -n "$author" ] && [ -n "$date" ]; then
+                commit_type=$(echo "$subject" | grep -oE '^(feat|fix|breaking|docs|chore|test|refactor|style|ci)(\([^)]+\))?:' | sed 's/(\([^)]*\))//g' | sed 's/:$//')
+                if [ -z "$commit_type" ]; then
+                  commit_type="chore"
+                fi
+
+                short_hash=$(echo "$hash" | cut -c 1-6)
+                escaped_subject=$(echo "$subject" | sed 's/[#`*]/\\&/g' | sed 's/"/\\"/g')
+                commit_message="$escaped_subject (\`$short_hash\`) - $author"
+                if [ -n "${commit_types[$commit_type]}" ]; then
+                  eval "${commit_type}_commits+='\n- ${commit_type}: ${commit_message}'"
+                fi
+              fi
+            done <<< "$commits"
+
+            for type in "${!commit_types[@]}"; do
+              eval "section_commits=\$${type}_commits"
+              if [ -n "$section_commits" ]; then
+                echo "#### ${commit_types[$type]}"
+                echo -e "$section_commits"
+                echo ""
+              fi
+            done
+          } > changelog_body.md
 
           echo "skip_pr=false" >> $GITHUB_OUTPUT
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$changelog_body" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Instalar GitHub CLI
         run: |
@@ -125,11 +119,13 @@ jobs:
           EXISTING_PR_URL=$(gh pr list --base hml --head "$CURRENT_BRANCH" --json url --jq '.[0].url')
 
           if [ -n "$EXISTING_PR_URL" ]; then
-            gh pr edit "$EXISTING_PR_URL" --body "${{ steps.changelog.outputs.changelog }}"
+            echo "✏️ Atualizando PR existente..."
+            gh pr edit "$EXISTING_PR_URL" --body-file changelog_body.md
           else
+            echo "🚀 Criando novo PR..."
             gh pr create \
               --title "$PR_TITLE" \
-              --body "${{ steps.changelog.outputs.changelog }}" \
+              --body-file changelog_body.md \
               --head "$CURRENT_BRANCH" \
               --base hml \
               --label "auto-pr,needs-review"
