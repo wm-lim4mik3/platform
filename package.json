@@ -11,7 +11,7 @@
     "dev": "PORT=4000 next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "formatter": "npx biome format ./src",
+    "format": "npx biome format ./src --fix",
     "test:unit": "vitest",
     "test:coverage": "vitest run --coverage"
   },

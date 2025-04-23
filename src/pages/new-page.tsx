@@ -1,7 +1,3 @@
 export function NewPage() {
-  return (
-    <div>
-      Testtt
-    </div>
-  )
+	return <div>Testtt</div>;
 }
