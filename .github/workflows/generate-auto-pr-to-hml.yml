@@ -123,7 +123,7 @@ jobs:
         if: steps.changelog.outputs.skip_pr == 'false'
         run: |
           CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-          PR_TITLE="[$(echo "$CURRENT_BRANCH" | grep -o 'PF-[0-9]\+')]- 🤖 PR Automático"
+          PR_TITLE="[$(echo "$CURRENT_BRANCH" | grep -o 'PF-[0-9]\+')] - 🤖 PR Automático"
 
           EXISTING_PR_URL=$(gh pr list --base hml --head "$CURRENT_BRANCH" --json url --jq '.[0].url')
 
