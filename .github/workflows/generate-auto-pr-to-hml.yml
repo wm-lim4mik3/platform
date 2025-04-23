@@ -106,11 +106,13 @@ jobs:
           echo "skip_pr=false" >> $GITHUB_OUTPUT
 
       - name: Instalar GitHub CLI
+        if: steps.changelog.outputs.skip_pr == 'false'
         run: |
           sudo apt update
           sudo apt install -y gh
 
       - name: Criar Labels se Não Existirem
+        if: steps.changelog.outputs.skip_pr == 'false'
         run: |
           gh label create "auto-pr" --description "PRs automáticos gerados pelo CI" --color "00FF00" || echo "Label já existe"
           gh label create "needs-review" --description "PRs que precisam de revisão" --color "FF9900" || echo "Label já existe"
@@ -118,7 +120,6 @@ jobs:
           GH_TOKEN: ${{ secrets.PAT }}
 
       - name: Criar ou Atualizar Pull Request com GitHub CLI
-        id: create_pr
         if: steps.changelog.outputs.skip_pr == 'false'
         run: |
           CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
