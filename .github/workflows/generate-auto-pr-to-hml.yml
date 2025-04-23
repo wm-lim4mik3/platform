@@ -84,11 +84,12 @@ jobs:
                   commit_type="chore"
                 fi
 
-                # Use the full hash instead of short_hash
-                escaped_subject=$(echo "$subject" | sed 's/[#`*]/\\&/g' | sed 's/"/\\"/g')
+                # Remove the commit type prefix from the subject
+                clean_subject=$(echo "$subject" | sed -E 's/^(feat|fix|breaking|docs|chore|test|refactor|style|ci)(\([^)]+\))?:[[:space:]]*//')
+                escaped_subject=$(echo "$clean_subject" | sed 's/[#`*]/\\&/g' | sed 's/"/\\"/g')
                 commit_message="$escaped_subject (\`$hash\`) - $author"
                 if [ -n "${commit_types[$commit_type]}" ]; then
-                  eval "${commit_type}_commits+='\n- ${commit_type}: ${commit_message}'"
+                  eval "${commit_type}_commits+='\n- ${commit_message}'"
                 fi
               fi
             done <<< "$commits"
