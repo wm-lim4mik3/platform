@@ -1,4 +1,4 @@
-name: Generate auto PR's to HML
+name: Create automatic PR to HML
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
       - 'fix/PF-*'
 
 jobs:
-  generate-auto-pr-to-hml:
+  create_automatic_pr:
     runs-on: ubuntu-latest
 
     steps:
