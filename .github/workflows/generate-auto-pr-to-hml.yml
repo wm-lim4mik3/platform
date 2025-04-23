@@ -31,6 +31,14 @@ jobs:
 
           commits=$(git log origin/hml..HEAD --pretty=format:"%h|%s|%an|%ad" --date=short)
 
+          # Check for [skip pr] in commit messages
+          SKIP_PR=$(git log origin/hml..HEAD --pretty=format:"%s" | grep -qi "\[skip pr\]" && echo "true" || echo "false")
+          if [ "$SKIP_PR" = "true" ]; then
+            echo "🚫 Encontrado '[skip pr]' na mensagem de commit. Pulando criação de changelog e PR."
+            echo "skip_pr=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           if [ -z "$commits" ]; then
             echo "✅ Nenhum commit novo encontrado em relação à HML. PR não será criado."
             echo "skip_pr=true" >> $GITHUB_OUTPUT
@@ -39,7 +47,6 @@ jobs:
 
           TICKET_ID=$(echo "$CURRENT_BRANCH" | grep -o 'PF-[0-9]\+')
 
-          # Start building the changelog body with proper newline preservation
           {
             echo "## 📦 Atualizações desta entrega automática"
             echo ""
@@ -55,7 +62,7 @@ jobs:
             echo "- 👤 **Autores do push:** $AUTHORS"
             echo "- 🌿 **Branch source:** \`$CURRENT_BRANCH\`"
             echo "- 🎯 **Branch target:** \`hml\`"
-            echo "- 📦 **Commits à frente de 'hml':** $COMMITS_AHEAD commits"
+            echo "- 📦 **Commits à frente de 'hml':** $COMMITS_AHEAD"
             echo "- 🧠 **HEAD atual:** \`$CURRENT_HEAD\`"
             echo "- 🧱 **Último commit em 'hml':** \`$HML_COMMIT\`"
             echo ""
@@ -77,6 +84,7 @@ jobs:
                   commit_type="chore"
                 fi
 
+                # Use the full hash instead of short_hash
                 escaped_subject=$(echo "$subject" | sed 's/[#`*]/\\&/g' | sed 's/"/\\"/g')
                 commit_message="$escaped_subject (\`$hash\`) - $author"
                 if [ -n "${commit_types[$commit_type]}" ]; then
@@ -102,25 +110,36 @@ jobs:
           sudo apt update
           sudo apt install -y gh
 
+      - name: Criar Labels se Não Existirem
+        run: |
+          gh label create "auto-pr" --description "PRs automáticos gerados pelo CI" --color "00FF00" || echo "Label já existe"
+          gh label create "needs-review" --description "PRs que precisam de revisão" --color "FF9900" || echo "Label já existe"
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
+
       - name: Criar ou Atualizar Pull Request com GitHub CLI
+        id: create_pr
         if: steps.changelog.outputs.skip_pr == 'false'
         run: |
           CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-          PR_TITLE="[$(echo "$CURRENT_BRANCH" | grep -o 'PF-[0-9]\+')] - 🤖 PR Automático"
+          PR_TITLE="[$(echo "$CURRENT_BRANCH" | grep -o 'PF-[0-9]\+')]- 🤖 PR Automático"
 
           EXISTING_PR_URL=$(gh pr list --base hml --head "$CURRENT_BRANCH" --json url --jq '.[0].url')
 
           if [ -n "$EXISTING_PR_URL" ]; then
             echo "✏️ Atualizando PR existente..."
             gh pr edit "$EXISTING_PR_URL" --body-file changelog_body.md
+            echo "pr_url=$EXISTING_PR_URL" >> $GITHUB_OUTPUT
           else
             echo "🚀 Criando novo PR..."
-            gh pr create \
+            PR_URL=$(gh pr create \
               --title "$PR_TITLE" \
               --body-file changelog_body.md \
               --head "$CURRENT_BRANCH" \
               --base hml \
-              --label "auto-pr,needs-review"
+              --label "auto-pr,needs-review" \
+              --json url --jq '.url')
+            echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
           fi
         env:
           GH_TOKEN: ${{ secrets.PAT }}
