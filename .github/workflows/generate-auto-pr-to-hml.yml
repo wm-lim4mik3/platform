@@ -139,8 +139,8 @@ jobs:
               --body-file changelog_body.md \
               --head "$CURRENT_BRANCH" \
               --base hml \
-              --label "auto-pr,needs-review" \
-              --json url --jq '.url')
+              --label "auto-pr,needs-review"
+              )
             echo "pr_url=$PR_URL" >> $GITHUB_OUTPUT
           fi
         env:
