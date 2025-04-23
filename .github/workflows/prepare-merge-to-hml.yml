@@ -35,12 +35,12 @@ jobs:
       - name: Install Dependencies
         run: npm ci
   
-  lint-and-test:
+  verifying:
     runs-on: ubuntu-latest
     needs: setup
     strategy:
       matrix:
-        task: ['biome', 'typecheck', 'coverage', 'chromatic']
+        task: ['checker', 'typechecker', 'tests', 'ui-regression']
       fail-fast: true
     steps:
       - name: Check out repository
@@ -63,23 +63,23 @@ jobs:
           restore-keys: npm-cache-${{ runner.os }}-
 
       - name: Run Biome checker
-        if: matrix.task == 'biome'
+        if: matrix.task == 'checker'
         run: npx biome check ./src
 
       - name: Run TypeScript Typechecker
-        if: matrix.task == 'typecheck'
+        if: matrix.task == 'typechecker'
         run: npx tsc --noEmit
 
       - name: Run Tests with Coverage
-        if: matrix.task == 'coverage'
+        if: matrix.task == 'tests'
         run: npm run test:coverage
 
       - name: Ensure public directory exists
-        if: matrix.task == 'chromatic'
+        if: matrix.task == 'ui-regression'
         run: mkdir -p public
 
       - name: Run Chromatic
-        if: matrix.task == 'chromatic'
+        if: matrix.task == 'ui-regression'
         uses: chromaui/action@latest
         with:
           projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
