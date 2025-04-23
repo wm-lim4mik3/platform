@@ -1,0 +1,136 @@
+name: Generate Changelog and PR
+
+on:
+  push:
+    branches:
+      - 'feat/PF-*'
+      - 'fix/PF-*'
+
+jobs:
+  prepare-to-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Fetch branches and calculate changelog
+        id: changelog
+        run: |
+          echo "🔄 Iniciando processo de geração de changelog..."
+
+          git fetch origin hml
+
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          CURRENT_HEAD=$(git rev-parse HEAD)
+          HML_COMMIT=$(git rev-parse origin/hml)
+
+          echo "📍 Branch atual: $CURRENT_BRANCH"
+          echo "🔨 HEAD ($CURRENT_BRANCH): $CURRENT_HEAD"
+          echo "🎯 Target (origin/hml): $HML_COMMIT"
+
+          COMMITS_A_FRENTE=$(git rev-list --count origin/hml..HEAD)
+          commits=$(git log origin/hml..HEAD --pretty=format:"%s")
+
+          if [ -z "$commits" ]; then
+            echo "✅ Nenhum commit novo encontrado em relação à HML. PR não será criado."
+            echo "skip_pr=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          feats=""
+          fixes=""
+          chores=""
+          breaks=""
+
+          while IFS= read -r line; do
+            if [[ $line == feat* ]]; then
+              feats+="- $line\n"
+            elif [[ $line == fix* ]]; then
+              fixes+="- $line\n"
+            elif [[ $line == chore* ]]; then
+              chores+="- $line\n"
+            elif [[ $line == *BREAKING* ]]; then
+              breaks+="- $line\n"
+            fi
+          done <<< "$commits"
+
+          formatted=""
+          [ -n "$feats" ] && formatted+=$'### 📦 Feats\n'"$feats"$'\n'
+          [ -n "$fixes" ] && formatted+=$'### 🛠 Fixes\n'"$fixes"$'\n'
+          [ -n "$chores" ] && formatted+=$'### 🔧 Chores\n'"$chores"$'\n'
+          [ -n "$breaks" ] && formatted+=$'### 💥 Breaking Changes\n'"$breaks"$'\n'
+
+          echo -e "📝 Changelog final:\n$formatted"
+
+          echo "skip_pr=false" >> "$GITHUB_OUTPUT"
+          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$formatted" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+          echo "current_branch=$CURRENT_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "current_head=$CURRENT_HEAD" >> "$GITHUB_OUTPUT"
+          echo "hml_commit=$HML_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "commits_a_frente=$COMMITS_A_FRENTE" >> "$GITHUB_OUTPUT"
+
+      - name: Instalar GitHub CLI
+        run: |
+          sudo apt update
+          sudo apt install -y gh
+
+      - name: Criar ou Atualizar Pull Request
+        if: steps.changelog.outputs.skip_pr == 'false'
+        run: |
+          gh config set prompt disabled
+
+          BRANCH_NAME="${{ steps.changelog.outputs.current_branch }}"
+          HEAD_SHA="${{ steps.changelog.outputs.current_head }}"
+          HML_SHA="${{ steps.changelog.outputs.hml_commit }}"
+          COMMIT_COUNT="${{ steps.changelog.outputs.commits_a_frente }}"
+          CHANGELOG_BODY="${{ steps.changelog.outputs.changelog }}"
+
+          AUTHOR_NAME=$(git log -1 --pretty=format:'%an')
+          TICKET_ID=$(echo "$BRANCH_NAME" | grep -oE 'PF-[0-9]{4}')
+
+          if [ -z "$TICKET_ID" ]; then
+            TITLE="🚀 PR Automático"
+          else
+            TITLE="[$TICKET_ID] - 🚀 PR Automático"
+          fi
+
+          echo "🔍 Verificando se já existe PR dessa branch para 'hml'..."
+          EXISTING_PR=$(gh pr list --base hml --head "$BRANCH_NAME" --json number --jq '.[0].number')
+
+          DESCRIPTION="📌 **Informações do PR**
+
+          - 👤 **Autor do push**: $AUTHOR_NAME
+          - 🌿 **Branch source**: \`$BRANCH_NAME\`
+          - 🎯 **Branch target**: \`hml\`
+          - 📦 **Commits à frente de 'hml'**: $COMMIT_COUNT
+          - 🧠 **HEAD atual**: \`$HEAD_SHA\`
+          - 🧱 **Último commit em 'hml'**: \`$HML_SHA\`
+          "
+
+          NOVO_CONTEUDO=$'## 📰 Atualizações desta entrega automática\n\nEste PR foi gerado automaticamente após push na branch feature/correção. Por favor, revise com atenção. 🧸\n\n'
+          NOVO_CONTEUDO+="$DESCRIPTION\n"
+          NOVO_CONTEUDO+=$'---\n\n'
+          NOVO_CONTEUDO+=$'### 🆕 Atualização via commit: `'"$HEAD_SHA"'`\n\n'
+          NOVO_CONTEUDO+="$CHANGELOG_BODY"
+
+          echo "$NOVO_CONTEUDO" > pr_body.md
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "🔁 Atualizando PR #$EXISTING_PR"
+            gh pr edit "$EXISTING_PR" --body-file pr_body.md
+          else
+            echo "🚀 PR não encontrado, criando novo..."
+            gh pr create \
+              --title "$TITLE" \
+              --body-file pr_body.md \
+              --head "$BRANCH_NAME" \
+              --base hml \
+              --label "automated" \
+              --label "$TICKET_ID" \
+              --reviewer "wm-lim4mik3"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
