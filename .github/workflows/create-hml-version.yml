@@ -6,7 +6,7 @@ on:
       - hml
 
 jobs:
-  manage-tag:
+  release-please-hml:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -14,23 +14,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get latest tag
-        id: get-tag
+      - name: Setup Git user
         run: |
-          latest_tag=$(git tag --list 'v*-hml' | sort -V | tail -n 1)
-          echo "latest_tag=$latest_tag" >> $GITHUB_OUTPUT
-          echo "Latest tag: $latest_tag"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Run Release Please (Create or Increment Tag)
+      - name: Run Release Please (HML Tag)
         uses: google-github-actions/release-please-action@v4
         with:
-          release-type: simple
-          version-file: version.txt 
-          bump-minor-pre-major: true 
-          bump-patch-for-minor: false 
-          changelog-types: "[]"
-          extra-files: |
-            version.txt
+          release-type: node
+          version-file: version.txt
+          package-name: financing-platform 
           tag-template: "v{{version}}-hml"
+          changelog-types: "[]"
+          bump-minor-pre-major: true
+          bump-patch-for-minor: true
           create-release: false
           command: manifest
