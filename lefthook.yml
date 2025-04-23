@@ -9,9 +9,9 @@ pre-push:
       description: "Running test in changed files"
 
 pre-commit:
-  commands:
-    biome-format:
-      glob: "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}"
-      run: npx biome check --write --no-errors-on-unmatched {staged_files}
-      stage_fixed: true
+  jobs:
+    - run: npx biome check --write --no-errors-on-unmatched {staged_files}
+      with:
+        stage_fixed: true
       description: "Formatting and fixing lint issues with Biome"
+      
