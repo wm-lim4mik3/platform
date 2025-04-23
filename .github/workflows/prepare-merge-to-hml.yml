@@ -138,7 +138,7 @@ jobs:
           restore-keys: npm-cache-${{ runner.os }}-
 
       - name: Run Chromatic
-        uses: chromaui/action@v1
+        uses: chromaui/action@latest
         with:
           projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
           exitZeroOnChanges: true
