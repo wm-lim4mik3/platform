@@ -1,4 +1,4 @@
-name: Generate Changelog and PR
+name: Generate auto PR's to HML
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
       - 'fix/PF-*'
 
 jobs:
-  prepare-to-pr:
+  generate-auto-pr-to-hml:
     runs-on: ubuntu-latest
 
     steps:
@@ -59,7 +59,7 @@ jobs:
             fi
 
             echo "### 📌 Informações do PR"
-            echo "- 👤 **Autores do push:** $AUTHORS"
+            echo "- 👤 **Autores:** $AUTHORS"
             echo "- 🌿 **Branch source:** \`$CURRENT_BRANCH\`"
             echo "- 🎯 **Branch target:** \`hml\`"
             echo "- 📦 **Commits à frente de 'hml':** $COMMITS_AHEAD commits"
@@ -106,21 +106,13 @@ jobs:
 
           echo "skip_pr=false" >> $GITHUB_OUTPUT
 
-      - name: Instalar GitHub CLI
+      - name: Installing GitHub CLI
         if: steps.changelog.outputs.skip_pr == 'false'
         run: |
           sudo apt update
           sudo apt install -y gh
 
-      - name: Criar Labels se Não Existirem
-        if: steps.changelog.outputs.skip_pr == 'false'
-        run: |
-          gh label create "auto-pr" --description "PRs automáticos gerados pelo CI" --color "00FF00" || echo "Label já existe"
-          gh label create "needs-review" --description "PRs que precisam de revisão" --color "FF9900" || echo "Label já existe"
-        env:
-          GH_TOKEN: ${{ secrets.PAT }}
-
-      - name: Criar ou Atualizar Pull Request com GitHub CLI
+      - name: Create or Update PR
         if: steps.changelog.outputs.skip_pr == 'false'
         run: |
           CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
