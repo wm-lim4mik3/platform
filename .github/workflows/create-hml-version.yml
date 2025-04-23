@@ -1,0 +1,36 @@
+name: Manage HML Tag
+
+on:
+  push:
+    branches:
+      - hml
+
+jobs:
+  manage-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest tag
+        id: get-tag
+        run: |
+          latest_tag=$(git tag --list 'v*-hml' | sort -V | tail -n 1)
+          echo "latest_tag=$latest_tag" >> $GITHUB_OUTPUT
+          echo "Latest tag: $latest_tag"
+
+      - name: Run Release Please (Create or Increment Tag)
+        uses: google-github-actions/release-please-action@v4
+        with:
+          release-type: simple
+          version-file: version.txt 
+          bump-minor-pre-major: true 
+          bump-patch-for-minor: false 
+          changelog-types: "[]"
+          extra-files: |
+            version.txt
+          tag-template: "v{{version}}-hml"
+          create-release: false
+          command: manifest
