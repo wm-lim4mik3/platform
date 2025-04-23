@@ -62,7 +62,7 @@ jobs:
             echo "- 👤 **Autores do push:** $AUTHORS"
             echo "- 🌿 **Branch source:** \`$CURRENT_BRANCH\`"
             echo "- 🎯 **Branch target:** \`hml\`"
-            echo "- 📦 **Commits à frente de 'hml':** $COMMITS_AHEAD"
+            echo "- 📦 **Commits à frente de 'hml':** $COMMITS_AHEAD commits"
             echo "- 🧠 **HEAD atual:** \`$CURRENT_HEAD\`"
             echo "- 🧱 **Último commit em 'hml':** \`$HML_COMMIT\`"
             echo ""
