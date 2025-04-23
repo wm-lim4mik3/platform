@@ -12,7 +12,9 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Busca todo o histórico de commits
 
       - name: Fetch HML and Generate Changelog
         id: changelog
@@ -27,46 +29,106 @@ jobs:
           COMMITS_AHEAD=$(git rev-list --count origin/hml..HEAD)
           AUTHORS=$(git log origin/hml..HEAD --pretty=format:'%an' | sort | uniq | paste -sd, -)
 
-          echo "📍 Branch atual: $CURRENT_BRANCH"
-          echo "🔨 HEAD ($CURRENT_BRANCH): $CURRENT_HEAD"
-          echo "🎯 Target (origin/hml): $HML_COMMIT"
+          printf "📍 Branch atual: %s\n" "$CURRENT_BRANCH"
+          printf "🔨 HEAD (%s): %s\n" "$CURRENT_BRANCH" "$CURRENT_HEAD"
+          printf "🎯 Target (origin/hml): %s\n" "$HML_COMMIT"
 
-          commits=$(git log origin/hml..HEAD --pretty=format:"%h|%s|%ad" --date=short)
+          commits=$(git log origin/hml..HEAD --pretty=format:"%h|%s|%an|%ad" --date=short)
 
           if [ -z "$commits" ]; then
             echo "✅ Nenhum commit novo encontrado em relação à HML. PR não será criado."
-            echo "skip_pr=true" >> "$GITHUB_OUTPUT"
+            echo "skip_pr=true" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          changelog_body="## 📦 Atualizações desta entrega automática
+          TICKET_ID=$(echo "$CURRENT_BRANCH" | grep -o 'PF-[0-9]\+')
 
-          Este PR foi gerado automaticamente após push na branch feature/correção. Por favor, revise com atenção. 🧐
+          changelog_body="## 📦 Atualizações desta entrega automática\n\n"
+          changelog_body+="Este PR foi gerado automaticamente após o push da branch $CURRENT_BRANCH. Por favor, revise com atenção. 🧐\n\n"
 
-          ### 📌 Informações do PR
-          - 👤 **Autores do push:** $AUTHORS
-          - 🌿 **Branch source:** \`$CURRENT_BRANCH\`
-          - 🎯 **Branch target:** \`hml\`
-          - 📦 **Commits à frente de 'hml':** $COMMITS_AHEAD
-          - 🧠 **HEAD atual:** \`$CURRENT_HEAD\`
-          - 🧱 **Último commit em 'hml':** \`$HML_COMMIT\`
+          if [ -n "$TICKET_ID" ]; then
+            changelog_body+="Detectado pelo nome da branch que pode ter um ticket aberto para essa demanda, acesse em: [$TICKET_ID](https://webmotors.atlassian.net/browse/$TICKET_ID)\n\n"
+          fi
 
-          ### 🆕 Histórico de atualizações"
+          changelog_body+="### 📌 Informações do PR\n"
+          changelog_body+="- 👤 **Autores do push:** $AUTHORS\n"
+          changelog_body+="- 🌿 **Branch source:** $CURRENT_BRANCH\n"
+          changelog_body+="- 🎯 **Branch target:** hml\n"
+          changelog_body+="- 📦 **Commits à frente de 'hml':** $COMMITS_AHEAD\n"
+          changelog_body+="- 🧠 **HEAD atual:** $CURRENT_HEAD\n"
+          changelog_body+="- 🧱 **Último commit em 'hml':** $HML_COMMIT\n\n"
+          changelog_body+="### 🆕 Histórico de atualizações\n\n"
 
+          # Inicializar seções por tipo de commit
+          declare -A commit_types
+          commit_types=(
+            ["feat"]="Feats"
+            ["fix"]="Fixes"
+            ["breaking"]="Breaking Changes"
+            ["docs"]="Docs"
+            ["chore"]="Chores"
+            ["test"]="Tests"
+            ["refactor"]="Refactors"
+            ["style"]="Styles"
+            ["ci"]="CI"
+          )
+
+          # Inicializar todas as seções como vazias
+          for type in "${!commit_types[@]}"; do
+            eval "${type}_commits=''"
+          done
+
+          # Processar commits e classificá-los por tipo
           while IFS= read -r line; do
-            IFS='|' read -r hash subject date <<< "$line"
-            changelog_body+=$'\n-'"$date"'** - `'"$hash"'` - '"$subject"
+            IFS='|' read -r hash subject author date <<< "$line"
+            if [ -n "$hash" ] && [ -n "$subject" ] && [ -n "$author" ] && [ -n "$date" ]; then
+              # Extrair o tipo do commit (ex.: feat, fix) da mensagem do commit
+              commit_type=$(echo "$subject" | grep -oE '^(feat|fix|breaking|docs|chore|test|refactor|style|ci)(\([^)]+\))?:' | sed 's/(\([^)]*\))//g' | sed 's/:$//')
+              if [ -z "$commit_type" ]; then
+                commit_type="chore"  # Default para commits sem tipo explícito
+              fi
+
+              # Pegar os primeiros 6 caracteres do hash
+              short_hash=$(echo "$hash" | cut -c 1-6)
+
+              # Escapar caracteres '#' na mensagem do commit para evitar que o Markdown interprete como cabeçalho
+              escaped_subject=$(echo "$subject" | sed 's/#/\\#/g')
+              commit_message="$escaped_subject ($short_hash) - $author"
+
+              # Adicionar o commit à seção correspondente
+              if [ -n "${commit_types[$commit_type]}" ]; then
+                eval "${commit_type}_commits+='\n- ${commit_type}: ${commit_message}'"
+              fi
+            else
+              echo "⚠️ Aviso: Linha ignorada devido a valores vazios (hash: '$hash', subject: '$subject', author: '$author', date: '$date')"
+            fi
           done <<< "$commits"
 
-          echo "skip_pr=false" >> "$GITHUB_OUTPUT"
-          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$changelog_body" >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          # Adicionar as seções ao changelog_body
+          for type in "${!commit_types[@]}"; do
+            eval "section_commits=\$${type}_commits"
+            if [ -n "$section_commits" ]; then
+              changelog_body+="#### ${commit_types[$type]}\n$section_commits\n\n"
+            fi
+          done
+
+          echo "skip_pr=false" >> $GITHUB_OUTPUT
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$changelog_body" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Instalar GitHub CLI
         run: |
           sudo apt update
           sudo apt install -y gh
+
+      - name: Criar Labels se Não Existirem
+        run: |
+          echo "🔧 Criando labels 'auto-pr' e 'needs-review' se não existirem..."
+          gh label create "auto-pr" --description "PRs automáticos gerados pelo CI" --color "00FF00" || echo "Label 'auto-pr' já existe"
+          gh label create "needs-review" --description "PRs que precisam de revisão" --color "FF9900" || echo "Label 'needs-review' já existe"
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
 
       - name: Criar ou Atualizar Pull Request com GitHub CLI
         if: steps.changelog.outputs.skip_pr == 'false'
@@ -87,7 +149,7 @@ jobs:
               --body "${{ steps.changelog.outputs.changelog }}" \
               --head "$CURRENT_BRANCH" \
               --base hml \
-              # --label "auto-pr" \
+              --label "auto-pr,needs-review"
               # --reviewer "wm-lim4mik3"
           fi
         env:
