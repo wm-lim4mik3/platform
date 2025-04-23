@@ -1,0 +1,150 @@
+name: Generate Changelog and PR
+
+on:
+  push:
+    branches:
+      - 'feat/PF-*'
+      - 'fix/PF-*'
+
+jobs:
+  prepare-to-pr:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v2
+
+      - name: Fetch HML and Generate Categorized Changelog
+        id: changelog
+        run: |
+          echo "🔄 Iniciando processo de geração de changelog..."
+
+          git fetch origin hml
+
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          CURRENT_HEAD=$(git rev-parse HEAD)
+          HML_COMMIT=$(git rev-parse origin/hml)
+          AUTHOR_NAME=$(git log -1 --pretty=format:'%an')
+          COMMITS_AHEAD=$(git rev-list --count origin/hml..HEAD)
+
+          echo "📍 Branch atual: $CURRENT_BRANCH"
+          echo "🔨 HEAD ($CURRENT_BRANCH): $CURRENT_HEAD"
+          echo "🎯 Target (origin/hml): $HML_COMMIT"
+          echo "👤 Autor: $AUTHOR_NAME"
+          echo "📦 Commits à frente: $COMMITS_AHEAD"
+
+          echo "📝 Coletando commits entre '$CURRENT_BRANCH' e 'origin/hml'..."
+          commits=$(git log origin/hml..HEAD --pretty=format:"%s")
+
+          if [ -z "$commits" ]; then
+            echo "✅ Nenhum commit novo encontrado. PR não será criado."
+            echo "skip_pr=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Classificação dos commits
+          feats=""
+          fixes=""
+          chores=""
+          breaks=""
+
+          echo "📊 Classificando commits..."
+          while IFS= read -r line; do
+            if [[ $line == feat* ]]; then
+              feats+="- ${line}\n"
+            elif [[ $line == fix* ]]; then
+              fixes+="- ${line}\n"
+            elif [[ $line == chore* ]]; then
+              chores+="- ${line}\n"
+            elif [[ $line == *BREAKING* ]]; then
+              breaks+="- ${line}\n"
+            fi
+          done <<< "$commits"
+
+          echo "✅ Commits classificados!"
+
+          # Variável para descrição personalizada (você pode alterar essa string abaixo)
+          custom_description="Este PR foi gerado automaticamente após push na branch feature/correção. Por favor, revise com atenção. 🧐"
+
+          # Metadados do PR
+          metadata="\
+          ### 📌 Informações do PR
+
+          - 👤 **Autor do push:** $AUTHOR_NAME
+          - 🌿 **Branch source:** \`$CURRENT_BRANCH\`
+          - 🎯 **Branch target:** \`hml\`
+          - 📦 **Commits à frente de 'hml':** $COMMITS_AHEAD
+          - 🧱 **HEAD atual:** \`$CURRENT_HEAD\`
+          - 🧱 **Último commit em 'hml':** \`$HML_COMMIT\`"
+
+          # Changelog formatado
+          formatted="## 📝 Changelog Gerado Automaticamente\n\n"
+          [ -n "$feats" ] && formatted+="### 📦 Feats\n\n$(echo -e "$feats")\n"
+          [ -n "$fixes" ] && formatted+="### 🛠 Fixes\n\n$(echo -e "$fixes")\n"
+          [ -n "$chores" ] && formatted+="### 🔧 Chores\n\n$(echo -e "$chores")\n"
+          [ -n "$breaks" ] && formatted+="### 💥 Breaking Changes\n\n$(echo -e "$breaks")\n"
+
+          # Corpo do PR
+          pr_body="\
+          $custom_description
+
+          $metadata
+
+          ---
+
+          $formatted"
+
+          echo "skip_pr=false" >> "$GITHUB_OUTPUT"
+          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$pr_body" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+          # Extrair código PF-xxxx da branch
+          TICKET=$(echo "$CURRENT_BRANCH" | grep -oE 'PF-[0-9]{4}')
+          echo "ticket=$TICKET" >> "$GITHUB_OUTPUT"
+
+      - name: Instalar GitHub CLI
+        run: |
+          sudo apt update
+          sudo apt install -y gh
+
+      - name: Criar ou Atualizar Pull Request com GitHub CLI
+        if: steps.changelog.outputs.skip_pr == 'false'
+        run: |
+          echo "🔍 Verificando se já existe PR da branch atual para 'hml'..."
+
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "📍 Branch atual: $CURRENT_BRANCH"
+
+          TICKET=${{ steps.changelog.outputs.ticket }}
+          PR_TITLE="[$TICKET] - PR Automático 🚀✨"
+
+          # Salva body formatado com changelog e descrição extra
+          echo "## 📝 Atualizações desta entrega automática" > pr_body.md
+          echo "" >> pr_body.md
+          echo "${{ steps.changelog.outputs.extra_description }}" >> pr_body.md
+          echo "" >> pr_body.md
+          echo "---" >> pr_body.md
+          echo "" >> pr_body.md
+          echo "${{ steps.changelog.outputs.changelog }}" >> pr_body.md
+
+          # Verifica se já existe um PR da branch atual para 'hml'
+          EXISTING_PR=$(gh pr list --head "$CURRENT_BRANCH" --base "hml" --state open --json number --jq '.[0].number')
+
+          if [ -n "$EXISTING_PR" ]; then
+            echo "✏️ PR já existe (#$EXISTING_PR), atualizando body..."
+            gh pr edit "$EXISTING_PR" --body-file pr_body.md
+          else
+            echo "🚀 PR não encontrado, criando novo..."
+            gh pr create \
+              --title "$PR_TITLE" \
+              --body-file pr_body.md \
+              --head "$CURRENT_BRANCH" \
+              --base hml \
+              --label "auto-pr,review-needed" \
+              --reviewer "username-1"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
+
+
