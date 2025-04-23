@@ -1,0 +1,104 @@
+{
+  "branches": [
+    {
+      "name": "next",
+      "prerelease": false
+    },
+    {
+      "name": "staging",
+      "prerelease": "staging"
+    },
+    {
+      "name": "master",
+      "prerelease": "rc"
+    }
+  ],
+  "tagFormat": "v${version}",
+  "plugins": [
+    [
+      "@semantic-release/commit-analyzer",
+      {
+        "preset": "conventionalcommits",
+        "parserOpts": {
+          "mergePattern": "^Merge pull request #\\d+ from .+$",
+          "mergeCorrespondence": []
+        },
+        "releaseRules": [
+          {
+            "type": "fix",
+            "release": "patch"
+          },
+          {
+            "type": "feat",
+            "release": "minor"
+          },
+          {
+            "type": "ci",
+            "release": "patch"
+          },
+          {
+            "type": "chore",
+            "release": false
+          },
+          {
+            "breaking": true,
+            "release": "major"
+          }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/release-notes-generator",
+      {
+        "preset": "conventionalcommits",
+        "parserOpts": {
+          "mergePattern": "^Merge pull request #\\d+ from .+$",
+          "mergeCorrespondence": []
+        },
+        "writerOpts": {
+          "commitsSort": [
+            "subject",
+            "scope"
+          ],
+          "commitGroupsSort": "title",
+          "ignoreCommits": [
+            {
+              "subject": "/^Merge pull request #\\d+ from .+$/"
+            }
+          ]
+        }
+      }
+    ],
+    [
+      "@semantic-release/changelog",
+      {
+        "changelogFile": "CHANGELOG.md"
+      }
+    ],
+    [
+      "@semantic-release/npm",
+      {
+        "npmPublish": false,
+        "pkgRoot": "."
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": [
+          "CHANGELOG.md",
+          "package.json",
+          "package-lock.json"
+        ],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "successComment": false,
+        "failComment": false
+      }
+    ]
+  ]
+}
