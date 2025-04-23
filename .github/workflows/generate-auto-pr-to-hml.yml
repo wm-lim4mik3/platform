@@ -41,11 +41,19 @@ jobs:
             exit 0
           fi
 
-          changelog_body="## 📦 Atualizações desta entrega automática
+          TICKET_ID=$(echo "$CURRENT_BRANCH" | grep -o 'PF-[0-9]\+')
 
-          Este PR foi gerado automaticamente após push na branch feature/correção. Por favor, revise com atenção. 🧐
+          changelog_body="# 📦 Atualizações desta entrega automática
 
-          ### 📌 Informações do PR
+          Este PR foi gerado automaticamente após o push da branch $CURRENT_BRANCH. Por favor, revise com atenção. 🧐"
+
+          if [ -n "$TICKET_ID" ]; then
+            changelog_body+=$'\n\nDetectado pelo nome da branch que pode ter um ticket aberto para essa demanda, acesse em: [${TICKET_ID}](https://webmotors.atlassian.net/browse/${TICKET_ID})\n\n___'
+          else
+            changelog_body+=$'\n\n___'
+          fi
+
+          changelog_body+=$'\n\n## 📌 Informações do PR
           - 👤 **Autores do push:** $AUTHORS
           - 🌿 **Branch source:** $CURRENT_BRANCH
           - 🎯 **Branch target:** hml
@@ -53,7 +61,9 @@ jobs:
           - 🧠 **HEAD atual:** $CURRENT_HEAD
           - 🧱 **Último commit em 'hml':** $HML_COMMIT
 
-          ### 🆕 Histórico de atualizações"
+          ___
+
+          ## 🆕 Histórico de atualizações"
 
           # Inicializar seções por tipo de commit
           declare -A commit_types
@@ -84,11 +94,8 @@ jobs:
                 commit_type="chore"  # Default para commits sem tipo explícito
               fi
 
-              # Pegar os primeiros 6 caracteres do hash
-              short_hash=$(echo "$hash" | cut -c 1-6)
-
               # Formatar a mensagem do commit
-              commit_message="$subject ($short_hash) - $author"
+              commit_message="$subject ($hash) - $author"
 
               # Adicionar o commit à seção correspondente
               if [ -n "${commit_types[$commit_type]}" ]; then
@@ -103,7 +110,7 @@ jobs:
           for type in "${!commit_types[@]}"; do
             eval "section_commits=\$${type}_commits"
             if [ -n "$section_commits" ]; then
-              changelog_body+=$'\n\n#### '"${commit_types[$type]}"$section_commits
+              changelog_body+=$'\n\n### '"${commit_types[$type]}"$section_commits
             fi
           done
 
@@ -136,7 +143,7 @@ jobs:
               --body "${{ steps.changelog.outputs.changelog }}" \
               --head "$CURRENT_BRANCH" \
               --base hml
-              # --label "auto-pr" \
+              --label "auto-pr" \
               # --reviewer "wm-lim4mik3"
           fi
         env:
