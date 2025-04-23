@@ -1,3 +1,3 @@
 export function Page() {
-  return <div>Essa página não presta!!!</div>;
+  return <div>Essa página presta sim!!!</div>;
 }
