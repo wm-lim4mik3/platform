@@ -12,7 +12,9 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Busca todo o histórico de commits
 
       - name: Fetch HML and Generate Changelog
         id: changelog
@@ -27,11 +29,11 @@ jobs:
           COMMITS_AHEAD=$(git rev-list --count origin/hml..HEAD)
           AUTHORS=$(git log origin/hml..HEAD --pretty=format:'%an' | sort | uniq | paste -sd, -)
 
-          echo "📍 Branch atual: $CURRENT_BRANCH"
-          echo "🔨 HEAD ($CURRENT_BRANCH): $CURRENT_HEAD"
-          echo "🎯 Target (origin/hml): $HML_COMMIT"
+          printf "📍 Branch atual: %s\n" "$CURRENT_BRANCH"
+          printf "🔨 HEAD (%s): %s\n" "$CURRENT_BRANCH" "$CURRENT_HEAD"
+          printf "🎯 Target (origin/hml): %s\n" "$HML_COMMIT"
 
-          commits=$(git log origin/hml..HEAD --pretty=format:"%h|%s|%ad" --date=short)
+          commits=$(git log origin/hml..HEAD --pretty=format:"%h|%s|%an|%ad" --date=short)
 
           if [ -z "$commits" ]; then
             echo "✅ Nenhum commit novo encontrado em relação à HML. PR não será criado."
@@ -45,18 +47,65 @@ jobs:
 
           ### 📌 Informações do PR
           - 👤 **Autores do push:** $AUTHORS
-          - 🌿 **Branch source:** \`$CURRENT_BRANCH\`
-          - 🎯 **Branch target:** \`hml\`
+          - 🌿 **Branch source:** $CURRENT_BRANCH
+          - 🎯 **Branch target:** hml
           - 📦 **Commits à frente de 'hml':** $COMMITS_AHEAD
-          - 🧠 **HEAD atual:** \`$CURRENT_HEAD\`
-          - 🧱 **Último commit em 'hml':** \`$HML_COMMIT\`
+          - 🧠 **HEAD atual:** $CURRENT_HEAD
+          - 🧱 **Último commit em 'hml':** $HML_COMMIT
 
           ### 🆕 Histórico de atualizações"
 
+          # Inicializar seções por tipo de commit
+          declare -A commit_types
+          commit_types=(
+            ["feat"]="Feats"
+            ["fix"]="Fixes"
+            ["breaking"]="Breaking Changes"
+            ["docs"]="Docs"
+            ["chore"]="Chores"
+            ["test"]="Tests"
+            ["refactor"]="Refactors"
+            ["style"]="Styles"
+            ["ci"]="CI"
+          )
+
+          # Inicializar todas as seções como vazias
+          for type in "${!commit_types[@]}"; do
+            eval "${type}_commits=''"
+          done
+
+          # Processar commits e classificá-los por tipo
           while IFS= read -r line; do
-            IFS='|' read -r hash subject date <<< "$line"
-            changelog_body+=$'\n-'"$date"'** - `'"$hash"'` - '"$subject"
+            IFS='|' read -r hash subject author date <<< "$line"
+            if [ -n "$hash" ] && [ -n "$subject" ] && [ -n "$author" ] && [ -n "$date" ]; then
+              # Extrair o tipo do commit (ex.: feat, fix) da mensagem do commit
+              commit_type=$(echo "$subject" | grep -oE '^(feat|fix|breaking|docs|chore|test|refactor|style|ci)(\([^)]+\))?:' | sed 's/(\([^)]*\))//g' | sed 's/:$//')
+              if [ -z "$commit_type" ]; then
+                commit_type="chore"  # Default para commits sem tipo explícito
+              fi
+
+              # Pegar os primeiros 6 caracteres do hash
+              short_hash=$(echo "$hash" | cut -c 1-6)
+
+              # Formatar a mensagem do commit
+              commit_message="$subject ($short_hash) - $author"
+
+              # Adicionar o commit à seção correspondente
+              if [ -n "${commit_types[$commit_type]}" ]; then
+                eval "${commit_type}_commits+=$'\n- ${commit_type}: ${commit_message}'"
+              fi
+            else
+              echo "⚠️ Aviso: Linha ignorada devido a valores vazios (hash: '$hash', subject: '$subject', author: '$author', date: '$date')"
+            fi
           done <<< "$commits"
+
+          # Adicionar as seções ao changelog_body
+          for type in "${!commit_types[@]}"; do
+            eval "section_commits=\$${type}_commits"
+            if [ -n "$section_commits" ]; then
+              changelog_body+=$'\n\n#### '"${commit_types[$type]}"$section_commits
+            fi
+          done
 
           echo "skip_pr=false" >> "$GITHUB_OUTPUT"
           echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
@@ -86,7 +135,7 @@ jobs:
               --title "$PR_TITLE" \
               --body "${{ steps.changelog.outputs.changelog }}" \
               --head "$CURRENT_BRANCH" \
-              --base hml \
+              --base hml
               # --label "auto-pr" \
               # --reviewer "wm-lim4mik3"
           fi
