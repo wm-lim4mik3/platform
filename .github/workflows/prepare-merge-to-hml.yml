@@ -61,7 +61,7 @@ jobs:
       - name: Run TypeScript Typechecker
         run: npx tsc --noEmit
 
-  tests:
+  coverage-test:
     runs-on: ubuntu-latest
     needs: setup
     steps:
