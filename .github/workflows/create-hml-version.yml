@@ -3,7 +3,7 @@ name: Manage HML Tag
 on:
   push:
     branches:
-      - hml
+      - staging
 
 jobs:
   release-please-hml:
